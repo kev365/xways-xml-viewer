@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>xways-xml-viewer</title>
+<style>
+  :root { --fg:#000; --bg:#fff; --muted:#666; --bar:#f3f3f3; --line:#d0d0d0; --err:#c00; }
+  html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:Consolas,'Courier New',monospace; font-size:12px; }
+  body { display:flex; flex-direction:column; }
+  #bar { flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:4px 6px; background:var(--bar); border-bottom:1px solid var(--line); font-family:'Segoe UI',Arial,sans-serif; font-size:11px; }
+  #q { flex:1 1 auto; font-family:Consolas,monospace; font-size:12px; padding:3px 5px; border:1px solid #999; }
+  #q.err { border-color:var(--err); background:#fff3f3; }
+  #q:disabled { background:#eee; color:#888; }
+  #status { flex:0 0 auto; color:var(--muted); white-space:nowrap; max-width:40%; overflow:hidden; text-overflow:ellipsis; }
+  #status.err { color:var(--err); font-weight:bold; }
+  #ns { flex:0 0 auto; color:#444; background:#e8e8e8; border:1px solid #ccc; border-radius:3px; padding:0 5px; cursor:pointer; white-space:nowrap; }
+  #ns.none { color:#999; }
+  button,label,select { font-family:'Segoe UI',Arial,sans-serif; font-size:11px; }
+  button { padding:2px 8px; }
+  button.on { background:#dbe8ff; border:1px solid #5b8def; }
+  button:disabled { color:#999; }
+  #meta { flex:0 0 auto; padding:2px 6px; color:var(--muted); font-family:'Segoe UI',Arial,sans-serif; font-size:11px; border-bottom:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #meta .warn { color:#900; background:#ffc; padding:0 4px; }
+  #view { flex:1 1 auto; overflow:auto; padding:4px 6px; }
+  pre { margin:0; white-space:pre-wrap; word-wrap:break-word; }
+  /* Basic view: same palette as the DLL's static renderer */
+  .br { color:#808080; }
+  .tn { color:#800080; font-weight:bold; }
+  .an { color:#b00000; }
+  .av { color:#0000c0; }
+  .tx { color:#000; }
+  .cm { color:#008000; font-style:italic; }
+  .cd { color:#806000; }
+  .pi { color:#808080; }
+  .bad { background:#fdd; }
+  .bo { color:#008000; }
+  /* Tree */
+  .n { padding-left:1.2em; }
+  .row { white-space:nowrap; line-height:1.35; }
+  .tg { display:inline-block; width:1em; color:var(--muted); cursor:pointer; user-select:none; }
+  .tg.leaf { cursor:default; }
+  .row .tn { cursor:pointer; }
+  .row .tn:hover { text-decoration:underline; }
+  .cnt { color:var(--muted); font-size:10px; margin-left:.4em; }
+  .more { color:#0645ad; cursor:pointer; text-decoration:underline; margin-left:1.2em; }
+  .hit { margin-bottom:8px; }
+  .path { color:var(--muted); font-family:'Segoe UI',Arial,sans-serif; font-size:10px; cursor:pointer; }
+  .path:hover { text-decoration:underline; }
+  .val { padding:2px 0; }
+  .errbox { color:var(--err); background:#fdd; padding:4px 6px; margin-bottom:4px; font-family:'Segoe UI',Arial,sans-serif; font-size:11px; }
+  .note { color:#900; background:#ffc; font-weight:bold; padding:4px; margin-top:6px; font-family:'Segoe UI',Arial,sans-serif; font-size:11px; }
+  /* value interpreter */
+  #interp { display:none; flex:0 0 auto; border-top:1px solid var(--line); background:#fafafa; padding:3px 6px 4px; max-height:34%; overflow:auto; font-family:'Segoe UI',Arial,sans-serif; font-size:11px; }
+  #interp.show { display:block; }
+  #interpHead { color:var(--muted); margin-bottom:3px; display:flex; gap:8px; align-items:baseline; }
+  #interpHead .sel { flex:1 1 auto; font-family:Consolas,monospace; color:#000; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #interpHead a { color:#0645ad; cursor:pointer; text-decoration:underline; flex:0 0 auto; }
+  #interp .ir { display:flex; gap:8px; line-height:1.5; }
+  #interp .ir.dim { color:#999; }
+  #interp .il { flex:0 0 210px; color:#555; }
+  #interp .ir.dim .il { color:#aaa; }
+  #interp .iv { flex:1 1 auto; font-family:Consolas,monospace; color:#000; word-break:break-word; }
+  #interp .ir.dim .iv { color:#999; }
+  /* context menu */
+  #ctx { display:none; position:fixed; z-index:20; background:#fff; border:1px solid #999; box-shadow:2px 2px 8px rgba(0,0,0,.3); font-family:'Segoe UI',Arial,sans-serif; font-size:11px; min-width:210px; padding:3px 0; user-select:none; }
+  #ctx.show { display:block; }
+  #ctx .mi { padding:4px 14px; cursor:pointer; white-space:nowrap; display:flex; justify-content:space-between; gap:16px; }
+  #ctx .mi:hover { background:#dbe8ff; }
+  #ctx .mi .k { color:#888; font-size:10px; }
+  #ctx .sep { border-top:1px solid #ddd; margin:3px 0; }
+  #help { display:none; position:absolute; right:8px; top:28px; width:520px; background:#fffbe6; border:1px solid #c9b458; padding:8px 10px; font-family:'Segoe UI',Arial,sans-serif; font-size:11px; z-index:9; box-shadow:2px 2px 6px rgba(0,0,0,.25); line-height:1.5; }
+  #help code { background:#fff; border:1px solid #ddd; padding:0 3px; font-family:Consolas,monospace; }
+  #help.show { display:block; }
+  #helpNs { color:#555; margin:4px 0 6px; word-break:break-all; }
+  #histBtn { padding:2px 6px; }
+  #histPanel { display:none; position:absolute; left:52px; right:8px; top:28px; max-height:320px; overflow-y:auto; background:#fff; border:1px solid #999; box-shadow:2px 2px 8px rgba(0,0,0,.3); z-index:8; font-family:Consolas,monospace; font-size:12px; }
+  #histPanel.show { display:block; }
+  #histPanel .hgroup { font-family:'Segoe UI',Arial,sans-serif; font-size:10px; color:#666; background:#f3f3f3; padding:2px 8px; border-bottom:1px solid #e0e0e0; position:sticky; top:0; }
+  #histPanel .hrow { display:flex; gap:10px; padding:3px 8px; cursor:pointer; border-bottom:1px solid #f0f0f0; align-items:baseline; }
+  #histPanel .hrow:hover { background:#eef4ff; }
+  #histPanel .hq { flex:1 1 auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #histPanel .hf { flex:0 0 auto; max-width:35%; color:#888; font-family:'Segoe UI',Arial,sans-serif; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #histPanel .hempty { padding:6px 8px; color:#888; font-family:'Segoe UI',Arial,sans-serif; font-size:11px; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <span>XPath</span>
+  <input id="q" type="text" spellcheck="false" placeholder="e.g.  //d:Exec/d:Command   —   empty = whole document. Esc clears." title="XPath 1.0. Default namespace is bound to d: (see the ns badge). Namespace-agnostic: //*[local-name()='Exec']. Attributes never take the default prefix: @Name, not @d:Name." autocomplete="off">
+  <button id="histBtn" title="Query history (queries that return data are saved automatically)">▾</button>
+  <button id="clear" title="Clear the query (Esc)">✕</button>
+  <span id="status">ready</span>
+  <span id="ns" class="none" title="Namespaces declared in this file">ns 0</span>
+  <button id="tabTree" class="on" title="Collapsible tree (click a tag name to put its XPath in the query box)">Tree</button>
+  <button id="tabBasic" title="Colour-coded, indented source (select + Ctrl+C)">Basic</button>
+  <select id="cap" title="Render cap: how much of the file is read into the viewer. Bigger caps mean slower parsing and more memory, and X-Ways is blocked while the file is read. Applies from the next file selection.">
+    <option value="8388608">8 MiB</option>
+    <option value="33554432">32 MiB</option>
+    <option value="134217728">128 MiB</option>
+    <option value="536870912">512 MiB</option>
+  </select>
+  <button id="helpBtn" title="XPath cheat sheet">?</button>
+</div>
+<div id="histPanel"></div>
+<div id="meta">waiting for X-Ways…</div>
+<div id="help">
+  <b>XPath 1.0 quick reference</b> — default namespace is bound to <code>d:</code>; attributes never take it.
+  <div id="helpNs">Namespaces in this file: none</div>
+  <code>//d:Exec/d:Command</code> any depth &nbsp; <code>/d:Task/d:Actions/d:Exec[2]</code> absolute with position<br>
+  <code>//*[local-name()='Command']</code> namespace-agnostic (any prefix, any document)<br>
+  <code>//d:Exec[contains(d:Command,'powershell')]</code> filter by child text &nbsp; <code>//d:Exec[d:Command='cmd.exe']/..</code> parent of a match<br>
+  <code>//d:Triggers/*</code> every trigger kind &nbsp; <code>//d:Principal/d:RunLevel[.='HighestAvailable']</code><br>
+  EVTX export: <code>//d:Event[d:System/d:EventID=4624]/d:EventData/d:Data[@Name='TargetUserName']</code><br>
+  Time window (no string ordering in XPath 1.0): <code>//d:Event[number(translate(substring(d:System/d:TimeCreated/@SystemTime,1,10),'-','')) &gt;= 20240101]</code><br>
+  plist: <code>//key[.='ProgramArguments']/following-sibling::*[1]/string</code> &nbsp; <code>//key[.='RunAtLoad']/following-sibling::true</code><br>
+  Office document.xml: <code>//w:t</code> runs &nbsp; <code>string(//w:body)</code> whole text &nbsp; <code>count(//w:p)</code> paragraphs<br>
+  Manifests: <code>//uses-permission/@android:name</code> &nbsp; <code>//requestedExecutionLevel/@level</code> &nbsp; <code>//assemblyIdentity/@name</code><br>
+  <code>//@*[contains(.,'http')]</code> any attribute containing &nbsp; <code>//*[contains(text(),'\Temp\')]</code> any text containing<br>
+  <code>//comment()</code> · <code>//processing-instruction()</code> · <code>//*[@*]</code> nodes with attributes<br>
+  <code>count(//d:Exec)</code> · <code>name(/*)</code> · <code>namespace-uri(/*)</code> · <code>(//d:Exec)[1]</code> first overall vs <code>//d:Exec[1]</code> first per parent<br>
+  <i>Click a tag name in the tree to put its XPath in the query box.</i>
+</div>
+<div id="view"><pre></pre></div>
+<div id="interp"><div id="interpHead"></div><div id="interpRows"></div></div>
+<div id="ctx"></div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const q = $('q'), status = $('status'), view = $('view'), meta = $('meta'), nsBadge = $('ns');
+  const tabTree = $('tabTree'), tabBasic = $('tabBasic');
+  const host = window.chrome && window.chrome.webview;
+
+  // ---- state ---------------------------------------------------------------
+  let docText = '';          // as received
+  let srcText = '';          // after cleanup — what the tokenizer and DOMParser see
+  let xdoc = null;           // XML Document, or null when tolerant
+  let parseErr = '';         // parser message when tolerant ('' when parsed)
+  let tolerant = false;
+  let nsMap = {}, uriPrefix = {};
+  let elemCount = 0;
+  let result = null;         // {type:'doc'} | {type:'nodes',nodes:[]} | {type:'string'|'number'|'boolean',value}
+  let mode = 'tree';
+  let timer = null;
+  let lastCommitted = '', lastOk = '', curFile = '';
+  let hist = [];             // [{f, q}], most recent first
+  let commitTimer = null;
+  let metaBase = '';
+  let trailingAfterRoot = 0;
+  let repairedClosed = 0;    // elements closed by repairTruncated for the parsed copy
+
+  function send(s) { try { if (host) host.postMessage(s); } catch (e) {} }
+  function log(s) { send('log\t' + s); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function escNul(s) { return esc(s).replace(/\0/g, '␀'); }
+
+  // ---- history -------------------------------------------------------------
+  function commit(fileOverride) {
+    const f = fileOverride !== undefined ? fileOverride : curFile;
+    if (lastOk && lastOk === q.value.trim() && lastOk !== lastCommitted) {
+      lastCommitted = lastOk;
+      send('hist\t' + f + '\t' + lastOk);
+      addHist(f, lastOk);
+    }
+  }
+  function addHist(f, x) {
+    hist = hist.filter(e => !(e.q === x && e.f === f));
+    hist.unshift({ f: f, q: x });
+    if ($('histPanel').classList.contains('show')) renderHist();
+  }
+  function renderHist() {
+    const pnl = $('histPanel');
+    pnl.innerHTML = '';
+    const mk = (label, list) => {
+      if (!list.length) return;
+      const g = document.createElement('div'); g.className = 'hgroup'; g.textContent = label; pnl.appendChild(g);
+      for (const e of list) {
+        const r = document.createElement('div'); r.className = 'hrow';
+        const a = document.createElement('span'); a.className = 'hq'; a.textContent = e.q; a.title = e.q;
+        const b = document.createElement('span'); b.className = 'hf'; b.textContent = e.f; b.title = e.f;
+        r.appendChild(a); r.appendChild(b);
+        r.onclick = () => { pnl.classList.remove('show'); if (tolerant) return; q.value = e.q; clearTimeout(timer); run(); commit(); q.focus(); };
+        pnl.appendChild(r);
+      }
+    };
+    mk('This file — ' + curFile, hist.filter(e => e.f === curFile));
+    mk('Other files', hist.filter(e => e.f !== curFile));
+    if (!hist.length) { const d = document.createElement('div'); d.className = 'hempty'; d.textContent = 'No saved queries yet — a query is saved automatically once it returns data.'; pnl.appendChild(d); }
+  }
+
+  // ---- Basic view: tolerant tokenizer (mirrors PrettyPrint in the DLL) ------
+  const BASIC_CAP = 4e6;
+  function emitTagInterior(out, t) {
+    let i = 0;
+    while (i < t.length && !/\s/.test(t[i])) i++;
+    out.push('<span class="tn">', escNul(t.slice(0, i)), '</span>');
+    while (i < t.length) {
+      while (i < t.length && /\s/.test(t[i])) i++;
+      if (i >= t.length) break;
+      if (t[i] === '/' || t[i] === '?') { out.push(t[i]); i++; continue; }
+      const ns = i;
+      while (i < t.length && t[i] !== '=' && !/\s/.test(t[i]) && t[i] !== '/') i++;
+      out.push(' <span class="an">', escNul(t.slice(ns, i)), '</span>');
+      while (i < t.length && /\s/.test(t[i])) i++;
+      if (i < t.length && t[i] === '=') {
+        out.push('=');
+        i++;
+        while (i < t.length && /\s/.test(t[i])) i++;
+        const vs = i;
+        if (i < t.length && (t[i] === '"' || t[i] === "'")) {
+          const qc = t[i++];
+          while (i < t.length && t[i] !== qc) i++;
+          if (i < t.length) i++;
+        } else {
+          while (i < t.length && !/\s/.test(t[i]) && t[i] !== '/') i++;
+        }
+        out.push('<span class="av">', escNul(t.slice(vs, i)), '</span>');
+      }
+    }
+  }
+  function indentStr(depth) { return '\n' + '  '.repeat(depth); }
+  function prettyPrint(x) {
+    const out = [];
+    let depth = 0, i = 0;
+    const n = x.length;
+    while (i < n) {
+      if (x[i] === '<') {
+        if (x.startsWith('<!--', i)) {
+          const e = x.indexOf('-->', i + 4);
+          const end = e < 0 ? n : e + 3;
+          out.push(indentStr(depth), '<span class="cm">', escNul(x.slice(i, end)), '</span>');
+          i = end; continue;
+        }
+        if (x.startsWith('<![CDATA[', i)) {
+          const e = x.indexOf(']]>', i + 9);
+          const end = e < 0 ? n : e + 3;
+          out.push(indentStr(depth), '<span class="cd">', escNul(x.slice(i, end)), '</span>');
+          i = end; continue;
+        }
+        const e = x.indexOf('>', i + 1);
+        if (e < 0) {   // unterminated tag (truncated file) — dump the rest
+          out.push(indentStr(depth), '<span class="bad">', escNul(x.slice(i)), '</span>');
+          break;
+        }
+        const t = x.slice(i + 1, e);
+        const isClose = t.length > 0 && t[0] === '/';
+        const isPI = t.length > 0 && (t[0] === '?' || t[0] === '!');
+        const selfClose = t.length > 0 && t[t.length - 1] === '/';
+        if (isClose && depth > 0) depth--;
+        out.push(indentStr(depth));
+        if (isPI) out.push('<span class="pi">&lt;', escNul(t), '&gt;</span>');
+        else { out.push('<span class="br">&lt;</span>'); emitTagInterior(out, t); out.push('<span class="br">&gt;</span>'); }
+        if (!isClose && !isPI && !selfClose) depth++;
+        i = e + 1;
+      } else {
+        let e = x.indexOf('<', i);
+        if (e < 0) e = n;
+        const txt = x.slice(i, e).trim();
+        if (txt) out.push(indentStr(depth), '<span class="tx">', escNul(txt), '</span>');
+        i = e;
+      }
+    }
+    return out.join('');
+  }
+
+  // ---- parsing -------------------------------------------------------------
+  // Chromium reports XML errors as a <parsererror> element (XHTML namespace). Learn its
+  // signature once so detection never depends on a hard-coded guess.
+  let peSig = { ns: 'http://www.w3.org/1999/xhtml', name: 'parsererror' };
+  try {
+    const probe = new DOMParser().parseFromString('<a><b></a>', 'application/xml');
+    const pe = probe.getElementsByTagName('parsererror')[0] || probe.getElementsByTagNameNS('*', 'parsererror')[0];
+    if (pe) peSig = { ns: pe.namespaceURI, name: pe.localName };
+  } catch (e) {}
+  function findParserError(d) {
+    const list = peSig.ns ? d.getElementsByTagNameNS(peSig.ns, peSig.name) : d.getElementsByTagName(peSig.name);
+    if (!list.length) return '';
+    const pe = list[0];
+    const div = pe.querySelector('div');
+    const msg = (div ? div.textContent : pe.textContent) || 'parse error';
+    return msg.replace(/\s+/g, ' ').trim();
+  }
+  function offsetOfLineCol(text, line, col) {
+    let pos = 0;
+    for (let l = 1; l < line; l++) { const nl = text.indexOf('\n', pos); if (nl < 0) return -1; pos = nl + 1; }
+    return pos + (col - 1);
+  }
+
+  // A document that stops mid-markup (render cap, or carved from unallocated space) has
+  // no closing tags and fails to parse as a whole. Walk the markup, drop the incomplete
+  // construct at the end and close the elements still open, so the tree and XPath cover
+  // everything that did arrive. Returns the repaired text with what was dropped and closed.
+  function repairTruncated(text) {
+    const stack = [];
+    const n = text.length;
+    let i = 0, cut = n;
+    while (i < n) {
+      if (text[i] === '<') {
+        if (text.startsWith('<!--', i)) {
+          const e = text.indexOf('-->', i + 4);
+          if (e < 0) { cut = i; break; }
+          i = e + 3; continue;
+        }
+        if (text.startsWith('<![CDATA[', i)) {
+          const e = text.indexOf(']]>', i + 9);
+          if (e < 0) { cut = i; break; }
+          i = e + 3; continue;
+        }
+        const e = text.indexOf('>', i + 1);
+        if (e < 0) { cut = i; break; }
+        const t = text.slice(i + 1, e);
+        const c0 = t.charAt(0);
+        if (c0 === '/') {
+          const name = t.slice(1).trim();
+          for (let k = stack.length - 1; k >= 0; k--) if (stack[k] === name) { stack.length = k; break; }
+        } else if (c0 !== '?' && c0 !== '!' && t.charAt(t.length - 1) !== '/') {
+          let j = 0;
+          while (j < t.length && ' \t\n\r/>'.indexOf(t.charAt(j)) < 0) j++;
+          if (j) stack.push(t.slice(0, j));
+        }
+        i = e + 1; continue;
+      }
+      const e = text.indexOf('<', i);
+      if (e < 0) break;      // trailing text run: complete as far as it goes
+      i = e;
+    }
+    let out = text.slice(0, cut);
+    // A cut lands anywhere, including inside an entity reference or a surrogate pair.
+    const amp = out.lastIndexOf('&');
+    if (amp >= 0 && out.length - amp < 12 && out.indexOf(';', amp) < 0) out = out.slice(0, amp);
+    if (out.length && (out.charCodeAt(out.length - 1) & 0xFC00) === 0xD800) out = out.slice(0, -1);
+    const dropped = n - out.length;
+    for (let k = stack.length - 1; k >= 0; k--) out += '</' + stack[k] + '>';
+    return { text: out, closed: stack.length, dropped: dropped };
+  }
+
+  function prepareAndParse() {
+    parseErr = ''; tolerant = false; xdoc = null; trailingAfterRoot = 0; repairedClosed = 0;
+    nsMap = {}; uriPrefix = {}; elemCount = 0;
+    let text = docText;
+    const notes = [];
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    const trimmed = text.replace(/[\0\s]+$/, '');
+    if (trimmed.length !== text.length) { notes.push((text.length - trimmed.length).toLocaleString() + ' trailing NUL/space chars trimmed'); text = trimmed; }
+    const firstLt = text.indexOf('<');
+    if (firstLt < 0) { srcText = text; tolerant = true; parseErr = 'no markup found'; return notes; }
+    if (firstLt > 0 && text.slice(0, firstLt).trim()) { notes.push('<span class="warn">skipped ' + firstLt.toLocaleString() + ' leading bytes before the first &lt;</span>'); text = text.slice(firstLt); }
+    srcText = text;
+    if (text.indexOf('\0') >= 0) { tolerant = true; parseErr = 'embedded NUL characters'; return notes; }
+    if (text.length > 64e6) { tolerant = true; parseErr = 'over 64 M chars — XPath/tree off; Basic shows the first 4 M'; return notes; }
+
+    const t0 = performance.now();
+    let d = new DOMParser().parseFromString(text, 'application/xml');
+    let err = findParserError(d);
+    if (err) {
+      const m = /^error on line (\d+) at column (\d+): Extra content at the end of the document/i.exec(err);
+      if (m) {
+        const cut = offsetOfLineCol(text, +m[1], +m[2]);
+        if (cut > 0) {
+          const d2 = new DOMParser().parseFromString(text.slice(0, cut), 'application/xml');
+          if (!findParserError(d2)) { d = d2; err = ''; trailingAfterRoot = text.length - cut; notes.push('<span class="warn">trailing content after root ignored (' + trailingAfterRoot.toLocaleString() + ' chars)</span>'); }
+        }
+      }
+    }
+    if (err) {
+      const r = repairTruncated(text);
+      if (r.text) {
+        const d3 = new DOMParser().parseFromString(r.text, 'application/xml');
+        if (!findParserError(d3) && d3.documentElement) {
+          d = d3; err = ''; repairedClosed = r.closed;
+          const dropped = r.dropped;
+          const how = [];
+          if (dropped > 0) how.push('dropped ' + dropped.toLocaleString() + ' incomplete trailing char' + (dropped === 1 ? '' : 's'));
+          if (r.closed > 0) how.push('closed ' + r.closed + ' open element' + (r.closed === 1 ? '' : 's'));
+          notes.push('<span class="warn">recovered from an incomplete document (' + how.join(', ') +
+                     ') — tree and XPath cover what parsed, Basic shows the raw bytes</span>');
+        }
+      }
+    }
+    if (err) { tolerant = true; parseErr = err; return notes; }
+    xdoc = d;
+    collectNamespaces();
+    log('parsed ' + text.length + ' chars, ' + elemCount + ' elements in ' + (performance.now() - t0).toFixed(1) + ' ms');
+    return notes;
+  }
+
+  function collectNamespaces() {
+    const defaults = [];
+    const it = xdoc.createNodeIterator(xdoc, NodeFilter.SHOW_ELEMENT);
+    let el, count = 0;
+    while ((el = it.nextNode())) {
+      if (++count > 2000000) break;
+      const attrs = el.attributes;
+      for (let i = 0; i < attrs.length; i++) {
+        const a = attrs[i];
+        if (a.name === 'xmlns') { if (a.value && defaults.indexOf(a.value) < 0) defaults.push(a.value); }
+        else if (a.prefix === 'xmlns') { if (!(a.localName in nsMap)) nsMap[a.localName] = a.value; }
+      }
+    }
+    elemCount = count;
+    defaults.forEach((uri, i) => {
+      let p = i === 0 ? 'd' : 'd' + (i + 1);
+      if (p in nsMap) p = 'd0' + (i || '');
+      nsMap[p] = uri;
+    });
+    for (const p in nsMap) if (!(nsMap[p] in uriPrefix)) uriPrefix[nsMap[p]] = p;
+    const keys = Object.keys(nsMap);
+    nsBadge.textContent = 'ns ' + keys.length;
+    nsBadge.classList.toggle('none', keys.length === 0);
+    const desc = keys.length ? keys.map(k => k + '=' + nsMap[k]).join('\n') : 'no namespaces declared';
+    nsBadge.title = desc;
+    $('helpNs').textContent = 'Namespaces in this file: ' + (keys.length ? keys.map(k => k + '=' + nsMap[k]).join(', ') : 'none');
+  }
+  function resolver(p) { return nsMap[p] || null; }
+
+  // ---- query -----------------------------------------------------------------
+  function run() {
+    const expr = q.value.trim();
+    q.classList.remove('err'); status.classList.remove('err'); status.title = '';
+    if (tolerant) {
+      status.textContent = 'not well-formed: ' + parseErr + ' — Basic only, XPath off';
+      status.title = parseErr; status.classList.add('err');
+      result = { type: 'doc' };
+      lastOk = '';
+      render();
+      return;
+    }
+    const t0 = performance.now();
+    if (!expr) { result = { type: 'doc' }; lastOk = ''; status.textContent = elemCount.toLocaleString() + ' elements'; render(); return; }
+    let r;
+    try { r = xdoc.evaluate(expr, xdoc, resolver, XPathResult.ANY_TYPE, null); }
+    catch (e) {
+      q.classList.add('err'); status.classList.add('err');
+      const full = e.message || String(e);
+      if (e.name === 'NamespaceError') status.textContent = 'unknown prefix — declared: ' + (Object.keys(nsMap).join(', ') || 'none');
+      else status.textContent = 'invalid XPath expression';
+      status.title = full;
+      lastOk = '';
+      return;
+    }
+    let hasData = false;
+    switch (r.resultType) {
+      case XPathResult.STRING_TYPE: result = { type: 'string', value: r.stringValue }; hasData = r.stringValue.length > 0; break;
+      case XPathResult.NUMBER_TYPE: result = { type: 'number', value: r.numberValue }; hasData = !isNaN(r.numberValue); break;
+      case XPathResult.BOOLEAN_TYPE: result = { type: 'boolean', value: r.booleanValue }; hasData = r.booleanValue; break;
+      default: {
+        const nodes = []; let nd;
+        while ((nd = r.iterateNext())) nodes.push(nd);
+        if (expr.indexOf('|') >= 0 && nodes.length > 1) nodes.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
+        result = { type: 'nodes', nodes: nodes }; hasData = nodes.length > 0;
+      }
+    }
+    lastOk = hasData ? expr : '';
+    clearTimeout(commitTimer);
+    if (lastOk) commitTimer = setTimeout(() => commit(), 3000);   // auto-save once the query settles
+    const ms = (performance.now() - t0).toFixed(1);
+    status.textContent = describe(result) + ' · ' + ms + ' ms';
+    status.title = status.textContent;
+    render();
+  }
+  function describe(v) {
+    if (v.type === 'nodes') {
+      const kinds = {};
+      for (const n of v.nodes) { const k = kindName(n); kinds[k] = (kinds[k] || 0) + 1; }
+      const ks = Object.keys(kinds);
+      if (!v.nodes.length) return '0 nodes';
+      if (ks.length === 1) return v.nodes.length + ' ' + ks[0] + (v.nodes.length === 1 ? '' : 's');
+      return v.nodes.length + ' nodes (' + ks.map(k => kinds[k] + ' ' + k + (kinds[k] === 1 ? '' : 's')).join(', ') + ')';
+    }
+    if (v.type === 'string') return 'string · ' + v.value.length + ' chars';
+    if (v.type === 'number') return 'number · ' + v.value;
+    if (v.type === 'boolean') return 'boolean · ' + v.value;
+    return '';
+  }
+  function kindName(n) {
+    switch (n.nodeType) {
+      case 1: return 'element'; case 2: return 'attribute'; case 3: return 'text'; case 4: return 'CDATA';
+      case 7: return 'processing instruction'; case 8: return 'comment'; case 9: return 'document'; default: return 'node';
+    }
+  }
+  function schedule() { clearTimeout(timer); timer = setTimeout(run, 150); }
+
+  // ---- node paths ----------------------------------------------------------
+  function stepName(el) {
+    const p = el.namespaceURI ? uriPrefix[el.namespaceURI] : '';
+    return (p ? p + ':' : '') + el.localName;
+  }
+  function xpathOf(node) {
+    const parts = [];
+    let n = node;
+    while (n && n.nodeType !== 9) {
+      if (n.nodeType === 2) { parts.unshift('@' + attrName(n)); n = n.ownerElement; continue; }
+      let step, idx = 0, same = 0;
+      const parent = n.parentNode;
+      if (n.nodeType === 1) {
+        step = stepName(n);
+        if (parent) for (const s of parent.childNodes) if (s.nodeType === 1 && s.localName === n.localName && s.namespaceURI === n.namespaceURI) { same++; if (s === n) idx = same; }
+      } else {
+        const test = n.nodeType === 8 ? 'comment()' : n.nodeType === 7 ? "processing-instruction('" + n.target + "')" : 'text()';
+        step = test;
+        if (parent) for (const s of parent.childNodes) if (s.nodeType === n.nodeType && (n.nodeType !== 7 || s.target === n.target) && !(n.nodeType === 3 && !s.nodeValue.trim())) { same++; if (s === n) idx = same; }
+        if (n.nodeType === 3 || n.nodeType === 4) { step = 'text()'; }
+      }
+      parts.unshift(step + (same > 1 ? '[' + idx + ']' : ''));
+      n = parent;
+    }
+    return '/' + parts.join('/');
+  }
+  function attrName(a) {
+    const p = a.namespaceURI ? uriPrefix[a.namespaceURI] : '';
+    return (p && a.namespaceURI !== 'http://www.w3.org/2000/xmlns/' ? p + ':' : (a.prefix ? a.prefix + ':' : '')) + a.localName;
+  }
+  function useNode(node) {
+    if (tolerant) return;
+    q.value = xpathOf(node);
+    clearTimeout(timer); run(); commit(); q.focus();
+  }
+
+  // ---- rendering -----------------------------------------------------------
+  const CHUNK = 500, MAX_INLINE = 200;
+  function clip(s) { return s.length > MAX_INLINE ? s.slice(0, MAX_INLINE) + '…' : s; }
+  function titleFor(s) { return s.length > MAX_INLINE ? ' title="' + esc(s.slice(0, 2000)) + '"' : ''; }
+  function keep(n) { return !(n.nodeType === 3 && !n.nodeValue.trim()); }
+  function attrsHtml(el) {
+    let h = '';
+    for (const a of el.attributes) {
+      if (a.name === 'xmlns' || a.prefix === 'xmlns') h += ' <span class="an">' + esc(a.name) + '</span>=<span class="av">"' + esc(clip(a.value)) + '"</span>';
+      else h += ' <span class="an">' + esc(a.name) + '</span>=<span class="av"' + titleFor(a.value) + '>"' + esc(clip(a.value)) + '"</span>';
+    }
+    return h;
+  }
+  function tagOpen(el, selfClose) {
+    return '<span class="br">&lt;</span><span class="tn" data-x="1" title="click: put this node\'s XPath in the query box">' + esc(el.nodeName) + '</span>' + attrsHtml(el) + '<span class="br">' + (selfClose ? '/&gt;' : '&gt;') + '</span>';
+  }
+  function tagClose(el) { return '<span class="br">&lt;/</span><span class="tn">' + esc(el.nodeName) + '</span><span class="br">&gt;</span>'; }
+  function leafHtml(n) {
+    switch (n.nodeType) {
+      case 3: return '<span class="tx"' + titleFor(n.nodeValue) + '>' + escNul(clip(n.nodeValue.trim())) + '</span>';
+      case 4: return '<span class="cd"' + titleFor(n.nodeValue) + '>&lt;![CDATA[' + escNul(clip(n.nodeValue)) + ']]&gt;</span>';
+      case 8: return '<span class="cm"' + titleFor(n.nodeValue) + '>&lt;!--' + escNul(clip(n.nodeValue)) + '--&gt;</span>';
+      case 7: return '<span class="pi">&lt;?' + esc(n.target) + ' ' + escNul(clip(n.nodeValue)) + '?&gt;</span>';
+      case 10: return '<span class="pi">&lt;!DOCTYPE ' + esc(n.name) + '&gt;</span>';
+      case 2: return '<span class="an">@' + esc(attrName(n)) + '</span>=<span class="av"' + titleFor(n.value) + '>"' + esc(clip(n.value)) + '"</span>';
+      default: return '<span class="tx">' + esc(n.nodeName) + '</span>';
+    }
+  }
+  function wireTn(row, node) {
+    const tn = row.querySelector('.tn[data-x]');
+    if (tn) tn.onclick = (e) => { e.stopPropagation(); useNode(node); };
+  }
+
+  // Lazy tree node: children rendered on first expand. depth<2 auto-expanded.
+  // Every element carries its DOM node and depth (and, when expandable, its open/close
+  // controls) so the context menu can act on it.
+  function node(n, depth, open) {
+    const el = document.createElement('div');
+    el.className = 'xn'; el.dataset.d = depth; el.__xn = n;
+    const row = document.createElement('div');
+    row.className = 'row';
+    if (n.nodeType !== 1) {
+      row.innerHTML = '<span class="tg leaf">&nbsp;</span>' + leafHtml(n);
+      el.appendChild(row);
+      return el;
+    }
+    const kids = Array.from(n.childNodes).filter(keep);
+    if (!kids.length) {
+      row.innerHTML = '<span class="tg leaf">&nbsp;</span>' + tagOpen(n, true);
+      wireTn(row, n); el.appendChild(row);
+      return el;
+    }
+    if (kids.length === 1 && kids[0].nodeType === 3 && kids[0].nodeValue.trim().length <= MAX_INLINE) {
+      row.innerHTML = '<span class="tg leaf">&nbsp;</span>' + tagOpen(n, false) + '<span class="tx">' + escNul(kids[0].nodeValue.trim()) + '</span>' + tagClose(n);
+      wireTn(row, n); el.appendChild(row);
+      return el;
+    }
+    const cnt = kids.length;
+    row.innerHTML = '<span class="tg">' + (open ? '▾' : '▸') + '</span>' + tagOpen(n, false) +
+      '<span class="cnt">' + cnt + (cnt === 1 ? ' child' : ' children') + '</span>' +
+      '<span class="br closed">' + (open ? '' : ' … ') + '</span>';
+    wireTn(row, n);
+    el.appendChild(row);
+    const kidsDiv = document.createElement('div');
+    kidsDiv.className = 'n';
+    let built = false, shown = 0;
+    function more() {
+      const end = Math.min(cnt, shown + CHUNK);
+      const frag = document.createDocumentFragment();
+      for (let i = shown; i < end; i++) frag.appendChild(node(kids[i], depth + 1, depth + 1 < 2 && cnt <= 50));
+      shown = end;
+      const old = kidsDiv.querySelector(':scope > .more'); if (old) old.remove();
+      kidsDiv.appendChild(frag);
+      if (shown < cnt) {
+        const m = document.createElement('div');
+        m.className = 'more';
+        m.textContent = 'show next ' + Math.min(CHUNK, cnt - shown) + ' of ' + (cnt - shown) + ' remaining';
+        m.onclick = more;
+        kidsDiv.appendChild(m);
+      }
+    }
+    const close = document.createElement('div');
+    close.className = 'row'; close.innerHTML = '<span class="tg leaf">&nbsp;</span>' + tagClose(n);
+    function setOpen(o) {
+      if (o && !built) { built = true; more(); }
+      kidsDiv.style.display = o ? '' : 'none';
+      close.style.display = o ? '' : 'none';
+      row.querySelector('.tg').textContent = o ? '▾' : '▸';
+      row.querySelector('.closed').textContent = o ? '' : ' … ';
+    }
+    row.querySelector('.tg').onclick = () => setOpen(kidsDiv.style.display === 'none');
+    el.appendChild(kidsDiv); el.appendChild(close);
+    el.__setOpen = setOpen;
+    el.__isOpen = () => kidsDiv.style.display !== 'none';
+    el.__kids = kidsDiv; el.__more = more; el.__cnt = cnt; el.__shown = () => shown;
+    setOpen(!!open);
+    return el;
+  }
+
+  function scalarRow(r) {
+    const d = document.createElement('div'); d.className = 'val';
+    if (r.type === 'string') d.innerHTML = '<span class="av">"' + escNul(r.value.length > 4000 ? r.value.slice(0, 4000) + '…' : r.value) + '"</span>';
+    else if (r.type === 'number') d.innerHTML = isNaN(r.value) ? '<span class="bad">NaN</span>' : '<span class="an">' + r.value + '</span>';
+    else d.innerHTML = '<span class="bo">' + r.value + '</span>';
+    return d;
+  }
+
+  function chunkedList(container, items, build) {
+    let shown = 0;
+    function more() {
+      const end = Math.min(items.length, shown + CHUNK);
+      const frag = document.createDocumentFragment();
+      for (let i = shown; i < end; i++) frag.appendChild(build(items[i], i));
+      shown = end;
+      const old = container.querySelector(':scope > .more'); if (old) old.remove();
+      container.appendChild(frag);
+      if (shown < items.length) {
+        const m = document.createElement('div'); m.className = 'more';
+        m.textContent = 'show next ' + Math.min(CHUNK, items.length - shown) + ' of ' + (items.length - shown) + ' remaining';
+        m.onclick = more; container.appendChild(m);
+      }
+    }
+    more();
+  }
+
+  function renderTree() {
+    const root = document.createElement('div');
+    if (result.type === 'doc') {
+      for (const c of xdoc.childNodes) if (keep(c)) root.appendChild(node(c, 0, true));
+    } else if (result.type === 'nodes') {
+      if (!result.nodes.length) { const e = document.createElement('div'); e.className = 'errbox'; e.textContent = 'no matches'; root.appendChild(e); }
+      chunkedList(root, result.nodes, (n) => {
+        const hit = document.createElement('div'); hit.className = 'hit';
+        const p = document.createElement('div'); p.className = 'path'; p.textContent = xpathOf(n); p.title = 'click: put this XPath in the query box';
+        p.onclick = () => useNode(n);
+        hit.appendChild(p);
+        hit.appendChild(node(n.nodeType === 9 ? n.documentElement : n, 0, true));
+        return hit;
+      });
+    } else root.appendChild(scalarRow(result));
+    view.appendChild(root);
+  }
+
+  function renderBasic() {
+    if (result.type === 'doc' || tolerant) {
+      const pre = document.createElement('pre');
+      const s = srcText.length > BASIC_CAP ? srcText.slice(0, BASIC_CAP) : srcText;
+      pre.innerHTML = prettyPrint(s);
+      view.appendChild(pre);
+      if (srcText.length > BASIC_CAP) { const t = document.createElement('div'); t.className = 'note'; t.textContent = '… (truncated at 4 M chars; narrow the query)'; view.appendChild(t); }
+      return;
+    }
+    if (result.type !== 'nodes') { view.appendChild(scalarRow(result)); return; }
+    if (!result.nodes.length) { const e = document.createElement('div'); e.className = 'errbox'; e.textContent = 'no matches'; view.appendChild(e); return; }
+    const ser = new XMLSerializer();
+    let budget = BASIC_CAP;
+    const wrap = document.createElement('div');
+    chunkedList(wrap, result.nodes, (n) => {
+      const hit = document.createElement('div'); hit.className = 'hit';
+      const p = document.createElement('div'); p.className = 'path'; p.textContent = xpathOf(n); p.onclick = () => useNode(n);
+      hit.appendChild(p);
+      const pre = document.createElement('pre');
+      if (budget <= 0) { pre.innerHTML = '<span class="note">… (truncated at 4 M chars; narrow the query)</span>'; }
+      else if (n.nodeType === 1 || n.nodeType === 9) { let s = ser.serializeToString(n); if (s.length > budget) s = s.slice(0, budget); budget -= s.length; pre.innerHTML = prettyPrint(s); }
+      else { pre.innerHTML = leafHtml(n); }
+      hit.appendChild(pre);
+      return hit;
+    });
+    view.appendChild(wrap);
+  }
+
+  function render() {
+    view.innerHTML = '';
+    if (tolerant) {
+      const e = document.createElement('div'); e.className = 'errbox';
+      e.textContent = 'Not well-formed XML: ' + parseErr + '. Showing the tolerant colour-coded view; XPath and the tree are unavailable for this file.';
+      view.appendChild(e);
+      renderBasic();
+      return;
+    }
+    if (mode === 'basic') renderBasic(); else renderTree();
+  }
+
+  function setMode(m) {
+    mode = m;
+    tabTree.classList.toggle('on', m === 'tree');
+    tabBasic.classList.toggle('on', m === 'basic');
+    render();
+  }
+
+  // ---- value interpreter ---------------------------------------------------
+  //  Decodes the selected text: integers as timestamps in the common epochs (filtered to
+  //  plausible dates, the rest on request), ISO 8601 strings, Base64 and hex. Stands in
+  //  for the Data Interpreter, which reads bytes at a cursor offset an X-Tension cannot
+  //  set. No dependency on the XML side of the page.
+  const T_MIN = Date.UTC(1990, 0, 1), T_MAX = Date.UTC(2040, 0, 1);
+  const EPOCHS = [
+    ['Unix seconds',                n => n * 1000],
+    ['Unix milliseconds / Java',    n => n],
+    ['Unix microseconds',           n => n / 1e3],
+    ['Unix nanoseconds / APFS',     n => n / 1e6],
+    ['Windows FILETIME',            n => n / 1e4 - 11644473600000],
+    ['WebKit / Chrome',             n => n / 1e3 - 11644473600000],
+    ['HFS+ (1904)',                 n => (n - 2082844800) * 1000],
+    ['Cocoa / Mac absolute (2001)', n => (n + 978307200) * 1000],
+    ['OLE automation date',         n => (n - 25569) * 86400000],
+  ];
+  let showAllInterp = false, lastInterp = null, selTimer = null;
+
+  function fmtDate(ms) {
+    if (typeof ms !== 'number' || !isFinite(ms)) return null;
+    const d = new Date(ms);
+    if (isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    if (y < 1601 || y > 9999) return null;
+    return d.toISOString().replace('T', ' ').replace('.000Z', '').replace('Z', '') + ' UTC';
+  }
+  function clipStr(s, n) { n = n || 200; return s.length > n ? s.slice(0, n) + '…' : s; }
+  function printableRatio(s) {
+    const a = [...s];
+    if (!a.length) return 0;
+    let ok = 0;
+    for (const c of a) { const k = c.codePointAt(0); if (k === 9 || k === 10 || k === 13 || (k >= 32 && k !== 127)) ok++; }
+    return ok / a.length;
+  }
+  function bytesToText(b) {
+    if (b.length >= 4 && b.length % 2 === 0 && b[1] === 0 && b[3] === 0) {
+      try { const s = new TextDecoder('utf-16le').decode(b); if (printableRatio(s) > 0.8) return { enc: 'UTF-16LE text', text: s }; } catch (e) {}
+    }
+    try { const s = new TextDecoder('utf-8', { fatal: true }).decode(b); if (printableRatio(s) > 0.8) return { enc: 'UTF-8 text', text: s }; } catch (e) {}
+    return null;
+  }
+  function hexOf(b, max) {
+    const n = Math.min(b.length, max);
+    let o = '';
+    for (let i = 0; i < n; i++) o += (i ? ' ' : '') + b[i].toString(16).padStart(2, '0').toUpperCase();
+    return o + (b.length > n ? ' …' : '');
+  }
+  function dosDateTime(n) {
+    const date = (n >>> 16) & 0xFFFF, time = n & 0xFFFF;
+    const y = 1980 + ((date >> 9) & 0x7F), mo = (date >> 5) & 0x0F, da = date & 0x1F;
+    const h = (time >> 11) & 0x1F, mi = (time >> 5) & 0x3F, se = (time & 0x1F) * 2;
+    if (mo < 1 || mo > 12 || da < 1 || da > 31 || h > 23 || mi > 59) return null;
+    const ms = Date.UTC(y, mo - 1, da, h, mi, se);
+    const s = fmtDate(ms);
+    return s ? { s: s.replace(' UTC', ' (local)'), ok: ms >= T_MIN && ms <= T_MAX } : null;
+  }
+
+  function interpNumber(v, rows) {
+    if (!/^-?\d{1,20}$/.test(v)) return;
+    const n = Number(v);
+    if (!isFinite(n)) return;
+    for (const [label, f] of EPOCHS) {
+      const ms = f(n), s = fmtDate(ms);
+      if (s) rows.push({ l: label, v: s, ok: ms >= T_MIN && ms <= T_MAX });
+    }
+    if (n >= 0 && n <= 0xFFFFFFFF) {
+      const d = dosDateTime(n);
+      if (d) rows.push({ l: 'DOS date+time', v: d.s, ok: d.ok });
+    }
+    if (n >= 0) rows.push({ l: 'Hexadecimal', v: '0x' + n.toString(16).toUpperCase(), ok: true });
+  }
+  function interpIso(v, rows) {
+    if (!/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?$/.test(v)) return;
+    const zoned = /(Z|[+-]\d{2}:?\d{2})$/.test(v);
+    const ms = Date.parse(zoned ? v : v.replace(' ', 'T') + 'Z');
+    if (isNaN(ms)) return;
+    rows.push({ l: 'ISO 8601' + (zoned ? '' : ' (no zone, read as UTC)'), v: fmtDate(ms), ok: true });
+    rows.push({ l: 'ISO 8601 → Unix seconds', v: String(Math.floor(ms / 1000)), ok: true });
+  }
+  function interpB64(v, rows) {
+    if (v.length < 8 || v.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(v)) return;
+    let b;
+    try {
+      const bin = atob(v);
+      b = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+    } catch (e) { return; }
+    const t = bytesToText(b);
+    // Plain words are often valid base64. Report a decode only if the input has padding,
+    // + or /, or the bytes are readable text.
+    if (!t && !/[+/=]/.test(v)) return;
+    rows.push({ l: 'Base64 → bytes', v: b.length + ' bytes', ok: true });
+    if (t) rows.push({ l: 'Base64 → ' + t.enc, v: clipStr(t.text), ok: true });
+    rows.push({ l: 'Base64 → hex', v: hexOf(b, 24), ok: true });
+  }
+  function interpHex(v, rows) {
+    const had0x = /^0x/i.test(v);
+    if (!had0x && /^-?\d+$/.test(v)) return;         // plain decimal: already covered above
+    const h = v.replace(/^0x/i, '').replace(/[\s-]/g, '');
+    if (h.length < 8 || h.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(h)) return;
+    const b = new Uint8Array(h.length / 2);
+    for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(i * 2, 2), 16);
+    rows.push({ l: 'Hex → bytes', v: b.length + ' bytes', ok: true });
+    const t = bytesToText(b);
+    if (t) rows.push({ l: 'Hex → ' + t.enc, v: clipStr(t.text), ok: true });
+    if (h.length <= 16) {
+      const be = parseInt(h, 16);
+      let le = 0;
+      for (let i = b.length - 1; i >= 0; i--) le = le * 256 + b[i];
+      rows.push({ l: 'Hex → integer (big-endian)', v: String(be), ok: true });
+      if (le !== be) rows.push({ l: 'Hex → integer (little-endian)', v: String(le), ok: true });
+      for (const [tag, val] of [['big-endian', be], ['little-endian', le]]) {
+        if (tag === 'little-endian' && le === be) continue;
+        for (const [label, f] of EPOCHS) {
+          const ms = f(val);
+          if (ms >= T_MIN && ms <= T_MAX) rows.push({ l: '↳ ' + tag + ' as ' + label, v: fmtDate(ms), ok: true });
+        }
+      }
+    }
+  }
+
+  function interpret(raw) {
+    const s = raw.trim();
+    if (!s || s.length > 8192) return null;
+    const v = s.replace(/^["']+|["']+$/g, '').trim();
+    if (!v) return null;
+    const rows = [];
+    interpNumber(v, rows);
+    interpIso(v, rows);
+    interpB64(v, rows);
+    interpHex(v, rows);
+    return rows.length ? { raw: v, rows: rows } : null;
+  }
+
+  function renderInterp() {
+    const box = $('interp'), head = $('interpHead'), body = $('interpRows');
+    if (!lastInterp) { box.classList.remove('show'); return; }
+    const hidden = lastInterp.rows.filter(x => !x.ok).length;
+    head.innerHTML = '<span>Interpreting</span><span class="sel">' + esc(clipStr(lastInterp.raw, 160)) + '</span>' +
+      (hidden ? '<a id="interpAll">' + (showAllInterp ? 'hide ' + hidden + ' unlikely' : 'show ' + hidden + ' unlikely') + '</a>' : '');
+    body.innerHTML = '';
+    for (const x of lastInterp.rows) {
+      if (!x.ok && !showAllInterp) continue;
+      const d = document.createElement('div');
+      d.className = 'ir' + (x.ok ? '' : ' dim');
+      d.innerHTML = '<span class="il">' + esc(x.l) + '</span><span class="iv">' + esc(x.v) + '</span>';
+      body.appendChild(d);
+    }
+    const a = $('interpAll');
+    if (a) a.onclick = () => { showAllInterp = !showAllInterp; renderInterp(); };
+    box.classList.add('show');
+  }
+  function updateInterp() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) { lastInterp = null; renderInterp(); return; }
+    const anchor = sel.anchorNode;
+    const el = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentNode);
+    if (!el || !view.contains(el)) return;       // ignore selections outside the document view
+    lastInterp = interpret(sel.toString());
+    renderInterp();
+  }
+
+  // ---- tree context menu ---------------------------------------------------
+  //  Right-click on a tree row with nothing selected opens this menu; with a text selection,
+  //  or in the Basic view, the WebView2 menu is left in place so Copy works. Level
+  //  operations act on rows already materialised at that depth; subtree and whole-tree
+  //  expansion stop at a row budget.
+  const EXPAND_BUDGET = 5000;
+  const ctx = $('ctx');
+
+  function copyText(s, what) {
+    const done = () => { status.textContent = 'copied ' + what; status.classList.remove('err'); };
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = s; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { status.textContent = 'copy failed'; }
+      ta.remove();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s).then(done, fallback);
+    else fallback();
+  }
+  // Breadth-first expansion from `roots`, opening nodes shallower than `maxDepth` until
+  // `budget` rows are on screen. Operates on children already loaded; siblings beyond the
+  // current chunk stay behind their "show next" link.
+  function expandFrom(roots, maxDepth, budget) {
+    const q = Array.from(roots);
+    let rows = 0, unloaded = 0, truncated = false;
+    while (q.length) {
+      const e = q.shift();
+      if (!e.__setOpen || +e.dataset.d >= maxDepth) continue;
+      if (rows >= budget) { truncated = true; break; }
+      if (!e.__isOpen()) e.__setOpen(true);
+      rows += e.__shown();
+      unloaded += e.__cnt - e.__shown();
+      for (const c of e.__kids.children) if (c.classList.contains('xn')) q.push(c);
+    }
+    status.classList.remove('err');
+    let s = 'expanded ' + rows.toLocaleString() + ' rows';
+    if (truncated) s += ' — stopped at the ' + EXPAND_BUDGET.toLocaleString() + '-row limit, expand deeper nodes individually';
+    if (unloaded) s += ' · ' + unloaded.toLocaleString() + ' more children behind "show next" links';
+    status.textContent = s;
+  }
+  function collapseUnder(el, includeSelf) {
+    for (const c of el.querySelectorAll('.xn')) if (c.__setOpen) c.__setOpen(false);
+    if (includeSelf && el.__setOpen) el.__setOpen(false);
+  }
+  function hideCtx() { ctx.classList.remove('show'); ctx.innerHTML = ''; }
+  function showCtx(x, y, el) {
+    const items = [];
+    const add = (label, fn, key) => items.push({ label, fn, key });
+    const sep = () => items.push(null);
+    if (el) {
+      const n = el.__xn, depth = +el.dataset.d;
+      if (el.__setOpen) {
+        add('Expand subtree', () => expandFrom([el], Infinity, EXPAND_BUDGET));
+        add('Collapse subtree', () => collapseUnder(el, true));
+      }
+      add('Expand this level', () => { for (const e of view.querySelectorAll('.xn[data-d="' + depth + '"]')) if (e.__setOpen && !e.__isOpen()) e.__setOpen(true); });
+      add('Collapse this level', () => { for (const e of view.querySelectorAll('.xn[data-d="' + depth + '"]')) if (e.__setOpen) e.__setOpen(false); });
+      sep();
+      add('Copy XPath', () => copyText(xpathOf(n), 'XPath'));
+      add('Use as query', () => useNode(n));
+      add('Copy XML', () => copyText(n.nodeType === 1 || n.nodeType === 9 ? new XMLSerializer().serializeToString(n) : (n.nodeValue || ''), 'XML'));
+      add('Copy text', () => copyText((n.textContent || '').trim(), 'text'));
+      add('Interpret text', () => { lastInterp = interpret((n.textContent || '').trim()); renderInterp(); if (!lastInterp) status.textContent = 'nothing to interpret'; });
+      sep();
+    }
+    const roots = () => view.querySelectorAll('.xn[data-d="0"]');
+    add('Expand all to depth 2', () => expandFrom(roots(), 2, EXPAND_BUDGET));
+    add('Expand all to depth 3', () => expandFrom(roots(), 3, EXPAND_BUDGET));
+    add('Expand all to depth 4', () => expandFrom(roots(), 4, EXPAND_BUDGET));
+    add('Expand everything', () => expandFrom(roots(), Infinity, EXPAND_BUDGET), 'up to ' + EXPAND_BUDGET.toLocaleString() + ' rows');
+    add('Collapse all', () => { for (const e of view.querySelectorAll('.xn')) if (e.__setOpen && +e.dataset.d > 0) e.__setOpen(false); });
+    ctx.innerHTML = '';
+    for (const it of items) {
+      if (!it) { const s = document.createElement('div'); s.className = 'sep'; ctx.appendChild(s); continue; }
+      const d = document.createElement('div');
+      d.className = 'mi';
+      d.innerHTML = '<span>' + esc(it.label) + '</span>' + (it.key ? '<span class="k">' + esc(it.key) + '</span>' : '');
+      d.onclick = (e) => { e.stopPropagation(); hideCtx(); it.fn(); };
+      ctx.appendChild(d);
+    }
+    ctx.style.left = '0px'; ctx.style.top = '0px';
+    ctx.classList.add('show');
+    const r = ctx.getBoundingClientRect();
+    ctx.style.left = Math.max(0, Math.min(x, window.innerWidth - r.width - 4)) + 'px';
+    ctx.style.top = Math.max(0, Math.min(y, window.innerHeight - r.height - 4)) + 'px';
+  }
+  view.addEventListener('contextmenu', e => {
+    if (mode !== 'tree' || tolerant) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+    e.preventDefault();
+    showCtx(e.clientX, e.clientY, e.target.closest ? e.target.closest('.xn') : null);
+  });
+  document.addEventListener('click', e => { if (!ctx.contains(e.target)) hideCtx(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCtx(); });
+  view.addEventListener('scroll', hideCtx);
+
+  // ---- UI wiring -----------------------------------------------------------
+  document.addEventListener('selectionchange', () => { clearTimeout(selTimer); selTimer = setTimeout(updateInterp, 150); });
+  q.addEventListener('input', schedule);
+  q.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { clearTimeout(timer); run(); commit(); }
+    else if (e.key === 'Escape') { q.value = ''; run(); }
+  });
+  q.addEventListener('change', () => { clearTimeout(timer); run(); commit(); });
+  q.addEventListener('blur', () => commit());
+  $('cap').onchange = () => { send('cap\t' + $('cap').value); status.textContent = 'cap saved — re-select the file to apply'; };
+  $('clear').onclick = () => { q.value = ''; run(); q.focus(); };
+  $('histBtn').onclick = (e) => { e.stopPropagation(); renderHist(); $('histPanel').classList.toggle('show'); };
+  document.addEventListener('click', e => { if (!$('histPanel').contains(e.target)) $('histPanel').classList.remove('show'); });
+  tabTree.onclick = () => { if (!tolerant) setMode('tree'); };
+  tabBasic.onclick = () => setMode('basic');
+  $('helpBtn').onclick = () => $('help').classList.toggle('show');
+  nsBadge.onclick = (e) => { e.stopPropagation(); $('help').classList.add('show'); };
+  document.addEventListener('click', e => { if (!$('help').contains(e.target) && e.target !== $('helpBtn') && e.target !== nsBadge) $('help').classList.remove('show'); });
+
+  // ---- host messages -------------------------------------------------------
+  function encNorm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+  function onEnvelope(m) {
+    docText = m.text || '';
+    lastInterp = null; renderInterp();
+    commit(curFile);                        // save the outgoing file's settled query
+    curFile = m.name || '';
+    lastCommitted = '';
+    if (Array.isArray(m.history) && m.history.length) hist = m.history.map(e => ({ f: e.f || '', q: e.q || '' })).filter(e => e.q);
+    if (m.maxBytes) { const c = $('cap'); for (const o of c.options) if (+o.value === m.maxBytes) c.value = o.value; }
+    const declM = /^\s*<\?xml[^>]*?\bencoding\s*=\s*["']([^"']+)["']/i.exec(docText.slice(0, 300).replace(/^﻿/, ''));
+    const declared = declM ? declM[1] : '';
+    let declHtml = declared ? esc(declared) : '—';
+    if (declared) {
+      const a = encNorm(declared), b = encNorm(m.encoding);
+      if (a && b && !(a.startsWith(b) || b.startsWith(a) || b.startsWith(a.replace(/^utf16$/, 'utf16')))) declHtml = '<span class="warn" title="declaration disagrees with detected encoding">' + esc(declared) + '</span>';
+    }
+    metaBase = '<b>' + esc(m.name || '') + '</b> · item ' + m.itemId + ' · ' + esc(m.typeDescr || '') + ' · ' +
+      (m.size || 0).toLocaleString() + ' bytes · ' + esc(m.encoding || '') + ' · declared ' + declHtml +
+      (m.truncated ? ' · <span class="warn">truncated to first ' + (m.maxBytes || 0).toLocaleString() + ' bytes</span>' : '');
+    meta.innerHTML = metaBase;
+    status.textContent = 'parsing…'; status.classList.remove('err');
+    setTimeout(() => {
+      const notes = prepareAndParse();
+      let extra = notes.length ? ' · ' + notes.join(' · ') : '';
+      if (tolerant) extra += ' · <span class="warn">not well-formed</span>';
+      else extra += ' · elements: ' + elemCount.toLocaleString() + (elemCount >= 2000000 ? '+' : '') + ' · ns: ' + Object.keys(nsMap).length;
+      meta.innerHTML = metaBase + extra;
+      q.disabled = tolerant;
+      q.placeholder = tolerant ? 'XPath unavailable: document is not well-formed' : 'e.g.  //d:Exec/d:Command   —   empty = whole document. Esc clears.';
+      tabTree.disabled = tolerant;
+      if (tolerant) { tabTree.classList.remove('on'); tabBasic.classList.add('on'); }
+      else { tabTree.classList.toggle('on', mode === 'tree'); tabBasic.classList.toggle('on', mode === 'basic'); }
+      run();
+      view.scrollTop = 0;
+    }, 0);
+  }
+
+  if (host) {
+    host.addEventListener('message', ev => {
+      let m = ev.data;
+      if (typeof m === 'string') { try { m = JSON.parse(m); } catch (e) { log('bad envelope: ' + e.message); return; } }
+      if (m && m.text !== undefined) onEnvelope(m);
+    });
+    send('ready\t');
+  } else {
+    // Demo mode (opened in a browser, not hosted): sample document; `#<xpath>` in the URL
+    // pre-fills the query, `#!broken` loads a malformed sample, `#!trunc` one cut off
+    // mid-element, `#!basic` starts on the Basic tab, `#!interp=<value>` runs the value
+    // interpreter on <value>.
+    meta.textContent = 'not hosted by X-Ways (no window.chrome.webview) — demo mode';
+    let h = ''; try { h = decodeURIComponent(location.hash.slice(1)); } catch (e) {}
+    const broken = h === '!broken';
+    if (h === '!basic') mode = 'basic';
+    else if (h && h[0] !== '!') q.value = h;
+    const good = '<?xml version="1.0" encoding="UTF-16"?>\n<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">\n  <!-- demo -->\n  <RegistrationInfo><Author>CORP\\svc</Author></RegistrationInfo>\n  <Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger><BootTrigger/></Triggers>\n  <Principals><Principal id="Author"><RunLevel>HighestAvailable</RunLevel></Principal></Principals>\n  <Actions Context="Author">\n    <Exec><Command>powershell.exe</Command><Arguments>-enc SQBFAFgA</Arguments></Exec>\n    <Exec><Command>cmd.exe</Command><Arguments>/c whoami</Arguments></Exec>\n  </Actions>\n</Task>\n';
+    const bad = '<?xml version="1.0"?>\n<root>\n  <a>ok</a>\n  <b attr="unterminated\n';
+    const trunc = h === '!trunc';
+    const text = broken ? bad : trunc ? good.slice(0, good.indexOf('SQBFAFgA') + 4) : good;
+    onEnvelope({ name: broken ? 'demo-broken.xml' : trunc ? 'demo-truncated.xml' : 'demo-task.xml', itemId: 0,
+      size: trunc ? 4096 : 620, maxBytes: text.length, typeDescr: 'XML',
+      encoding: broken ? 'UTF-8' : 'UTF-16 LE (BOM)', truncated: trunc, history: [], text: text });
+    if (h.startsWith('!interp=')) setTimeout(() => { lastInterp = interpret(h.slice(8)); renderInterp(); }, 50);
+    const mE = /^!expand=(\d+|all)$/.exec(h);   // `#!expand=<depth|all>` exercises the expansion budget
+    if (mE) setTimeout(() => expandFrom(view.querySelectorAll('.xn[data-d="0"]'), mE[1] === 'all' ? Infinity : +mE[1], EXPAND_BUDGET), 100);
+  }
+})();
+</script>
+</body>
+</html>

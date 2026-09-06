@@ -1,0 +1,12 @@
+# xways-xml-viewer settings — lives next to xways-xml-viewer.dll as xways-xml-viewer.cfg.
+# The DLL rewrites this file when history or the render cap changes; `mode` is preserved.
+
+# mode=live   — XPath tree view hosted in the preview pane (needs the Edge WebView2 Runtime). Default.
+# mode=basic  — static colour-coded, indented HTML (the v0.1 look); no WebView2 process is started.
+mode=live
+
+# Render cap in bytes (64 KiB … 512 MiB). Bigger caps block X-Ways longer while the file is read.
+cap_bytes=8388608
+
+# Query history, most recent first, up to 50 lines: history=<file name><TAB><xpath>
+#history=task.xml	//d:Exec/d:Command
